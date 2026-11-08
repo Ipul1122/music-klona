@@ -11,12 +11,12 @@ const memoryStore = new Map<string, LicenseRecord>();
 // Pre-seeded demo keys
 const initialLicenses: LicenseRecord[] = [
   {
-    licenseKey: 'PULL-DEMO-2026',
+    licenseKey: 'PULL-DEMO-2027',
     maxDevices: 2,
     devices: [],
     createdAt: new Date().toISOString(),
     buyerName: 'Demo User Antigravity',
-    buyerPhone: '081234567890',
+    buyerPhone: '085693672730',
     status: 'active'
   },
   {
