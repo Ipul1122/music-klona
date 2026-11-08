@@ -9,9 +9,8 @@ interface VideoMetadata {
 
 const urlCache = new Map<string, VideoMetadata>();
 
-async function getOrFetchStreamMetadata(videoId: string, seekSec: number): Promise<VideoMetadata> {
-  const cacheKey = `${videoId}_${seekSec}`;
-  const cached = urlCache.get(cacheKey);
+async function getOrFetchStreamMetadata(videoId: string): Promise<VideoMetadata> {
+  const cached = urlCache.get(videoId);
   if (cached && cached.expires > Date.now()) {
     return cached;
   }
@@ -33,10 +32,6 @@ async function getOrFetchStreamMetadata(videoId: string, seekSec: number): Promi
     }
   };
 
-  if (seekSec > 0) {
-    payload.startTimeSecs = seekSec;
-  }
-
   const response = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false&alt=json', {
     method: 'POST',
     headers: {
@@ -52,7 +47,7 @@ async function getOrFetchStreamMetadata(videoId: string, seekSec: number): Promi
   });
 
   if (!response.ok) {
-    throw new Error(`YouTube player returned status ${response.status}`);
+    throw new Error(`YouTube player API returned status ${response.status}`);
   }
 
   const data: any = await response.json();
@@ -60,15 +55,34 @@ async function getOrFetchStreamMetadata(videoId: string, seekSec: number): Promi
   const regularFormats = data.streamingData?.formats || [];
   const allFormats = [...adaptiveFormats, ...regularFormats];
 
-  const itag140 = allFormats.find((f: any) => f.itag === 140 && f.url);
-  const targetFormat = itag140 || allFormats.find((f: any) => f.mimeType?.startsWith('audio/') && f.url);
-
-  if (!targetFormat || !targetFormat.url) {
-    throw new Error('Format audio tidak ditemukan untuk video ini');
+  let targetFormat = allFormats.find((f: any) => f.itag === 140 && f.url);
+  if (!targetFormat) {
+    targetFormat = allFormats.find((f: any) => f.mimeType?.startsWith('audio/') && f.url);
   }
 
-  const durationSec = parseInt(data.videoDetails?.lengthSeconds || targetFormat.approxDurationMs ? String(Math.floor(targetFormat.approxDurationMs / 1000)) : '0', 10);
-  const totalLength = parseInt(targetFormat.contentLength || '0', 10);
+  // Ekstraksi fallback jika URL ada di dalam signatureCipher
+  if (!targetFormat) {
+    const cipherFormat = allFormats.find((f: any) => f.signatureCipher || f.cipher);
+    if (cipherFormat) {
+      const rawCipher = cipherFormat.signatureCipher || cipherFormat.cipher;
+      const params = new URLSearchParams(rawCipher);
+      const url = params.get('url');
+      if (url) {
+        targetFormat = { ...cipherFormat, url };
+      }
+    }
+  }
+
+  if (!targetFormat || !targetFormat.url) {
+    throw new Error('Format audio direct tidak ditemukan untuk video ini');
+  }
+
+  const durationSec = parseInt(
+    data.videoDetails?.lengthSeconds ||
+      (targetFormat.approxDurationMs ? String(Math.floor(targetFormat.approxDurationMs / 1000)) : '0'),
+    10
+  );
+  const totalLength = parseInt(targetFormat.contentLength || '3500000', 10);
 
   const meta: VideoMetadata = {
     url: targetFormat.url,
@@ -77,7 +91,7 @@ async function getOrFetchStreamMetadata(videoId: string, seekSec: number): Promi
     expires: Date.now() + 2 * 60 * 60 * 1000
   };
 
-  urlCache.set(cacheKey, meta);
+  urlCache.set(videoId, meta);
   return meta;
 }
 
@@ -91,45 +105,74 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  const videoId = req.query?.videoId;
+  const videoId = req.query?.videoId || req.body?.videoId;
   if (!videoId || typeof videoId !== 'string') {
     return res.status(400).json({ error: 'Parameter videoId diperlukan' });
   }
 
   try {
-    const meta = await getOrFetchStreamMetadata(videoId, 0);
+    const meta = await getOrFetchStreamMetadata(videoId.trim());
 
-    const rangeHeader = req.headers['range'];
-    if (!rangeHeader) {
-      // Direct redirect jika tidak ada range header
-      return res.redirect(302, meta.url);
+    // 1. Tangani request HEAD (cek ukuran file tanpa download isi)
+    if (req.method === 'HEAD') {
+      res.status(200);
+      res.setHeader('Content-Type', 'audio/mp4');
+      res.setHeader('Accept-Ranges', 'bytes');
+      if (meta.totalLength > 0) {
+        res.setHeader('Content-Length', String(meta.totalLength));
+      }
+      return res.end();
     }
 
-    const parts = rangeHeader.replace(/bytes=/, '').split('-');
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : (meta.totalLength ? meta.totalLength - 1 : start + 524288);
+    // 2. Tangani request GET (Streaming audio range chunk)
+    const rangeHeader = req.headers['range'];
+    let rangeStart = 0;
+    let rangeEnd: number | undefined;
+
+    if (rangeHeader) {
+      const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+      if (match) {
+        rangeStart = parseInt(match[1], 10);
+        if (match[2]) {
+          rangeEnd = parseInt(match[2], 10);
+        }
+      }
+    }
+
+    // Chunk streaming aman (maks 1MB per request untuk respon instan tanpa timeout)
+    const chunkSize = 1048576; // 1 MB
+    const actualEnd =
+      rangeEnd !== undefined
+        ? rangeEnd
+        : meta.totalLength > 0
+          ? Math.min(rangeStart + chunkSize - 1, meta.totalLength - 1)
+          : rangeStart + chunkSize - 1;
 
     const ytHeaders: any = {
       'User-Agent': YOUTUBE_IOS_UA,
-      'Range': `bytes=${start}-${end}`
+      'Range': `bytes=${rangeStart}-${actualEnd}`
     };
 
     const upstream = await fetch(meta.url, { headers: ytHeaders });
-    res.status(upstream.status);
+
+    res.status(upstream.status === 206 ? 206 : 200);
     res.setHeader('Content-Type', upstream.headers.get('content-type') || 'audio/mp4');
     res.setHeader('Accept-Ranges', 'bytes');
+
     if (upstream.headers.has('content-range')) {
       res.setHeader('Content-Range', upstream.headers.get('content-range')!);
+    } else if (meta.totalLength > 0) {
+      res.setHeader('Content-Range', `bytes ${rangeStart}-${actualEnd}/${meta.totalLength}`);
     }
+
     if (upstream.headers.has('content-length')) {
       res.setHeader('Content-Length', upstream.headers.get('content-length')!);
     }
 
     const arrayBuf = await upstream.arrayBuffer();
-    return res.send(Buffer.from(arrayBuf));
+    return res.end(Buffer.from(arrayBuf));
   } catch (err: any) {
     console.error('[STREAM_API_ERROR]:', err);
     return res.status(500).json({ error: err?.message || 'Gagal streaming audio' });
   }
 }
-

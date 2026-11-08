@@ -170,22 +170,26 @@ export async function extractDirectAudioUrl(videoId: string): Promise<string> {
     return streamUrlCache.get(videoId)!;
   }
 
-  // Jika di browser Web, coba dev extract endpoint jika browser terhalang CORS
+  // 1. Pada browser Web, gunakan stream proxy API agar bebas CORS dan dapat streaming range
   if (isWeb) {
     try {
-      const devRes = await fetch(`${DEV_SERVER_URL}/api/extract-stream?videoId=${encodeURIComponent(videoId)}`);
+      const devRes = await fetch(`${DEV_SERVER_URL.replace(/\/+$/, '')}/api/extract-stream?videoId=${encodeURIComponent(videoId)}`);
       if (devRes.ok) {
         const devData = await devRes.json();
         if (devData.audioUrl) {
-          return devData.audioUrl;
+          const finalUrl = devData.audioUrl.startsWith('/')
+            ? `${DEV_SERVER_URL.replace(/\/+$/, '')}${devData.audioUrl}`
+            : devData.audioUrl;
+          return finalUrl;
         }
       }
     } catch {
-      // lanjutkan coba direct
+      // fallback jika API lambat
     }
+    return `${DEV_SERVER_URL.replace(/\/+$/, '')}/api/stream?videoId=${encodeURIComponent(videoId)}`;
   }
 
-  // Client 1: YouTube iOS Official Client (Direct Googlevideo CDN streams on itag 140)
+  // 2. Pada HP Fisik Native (Android & iOS), ekstraksi On-Device langsung via InnerTube tanpa batasan CORS browser
   try {
     const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false&alt=json', {
       method: 'POST',
