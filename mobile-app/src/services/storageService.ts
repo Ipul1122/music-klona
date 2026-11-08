@@ -4,7 +4,8 @@ import { LicenseData, Track } from '../types';
 const STORAGE_KEYS = {
   LICENSE: '@musik_klona_license_v1',
   OFFLINE_TRACKS: '@musik_klona_offline_tracks_v1',
-  DEVICE_ID: '@musik_klona_device_id_v1'
+  DEVICE_ID: '@musik_klona_device_id_v1',
+  RECENT_SEARCHES: '@musik_klona_recent_searches_v1'
 };
 
 export const storageService = {
@@ -109,6 +110,46 @@ export const storageService = {
       await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, deviceId);
     } catch {
       // ignore
+    }
+  },
+
+  /**
+   * Mengambil riwayat pencarian terbaru (Recent Searches)
+   */
+  async getRecentSearches(): Promise<string[]> {
+    try {
+      const json = await AsyncStorage.getItem(STORAGE_KEYS.RECENT_SEARCHES);
+      if (!json) return ['Cari Lagu'];
+      return JSON.parse(json) as string[];
+    } catch {
+      return ['Cari Lagu'];
+    }
+  },
+
+  /**
+   * Menyimpan pencarian baru ke riwayat recent searches (maks 10 query terbaru)
+   */
+  async saveRecentSearch(query: string): Promise<string[]> {
+    try {
+      const clean = query.trim();
+      if (!clean) return await this.getRecentSearches();
+      const current = await this.getRecentSearches();
+      const updated = [clean, ...current.filter(item => item.toLowerCase() !== clean.toLowerCase())].slice(0, 10);
+      await AsyncStorage.setItem(STORAGE_KEYS.RECENT_SEARCHES, JSON.stringify(updated));
+      return updated;
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Menghapus seluruh riwayat pencarian
+   */
+  async clearRecentSearches(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.RECENT_SEARCHES);
+    } catch (e) {
+      console.error('[STORAGE] Gagal menghapus riwayat pencarian:', e);
     }
   }
 };

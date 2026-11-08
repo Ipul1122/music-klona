@@ -12,6 +12,7 @@ interface TrackItemProps {
   onPlay: () => void;
   onDownload?: () => void;
   onDelete?: () => void;
+  onSaveFile?: () => void;
   showDeleteButton?: boolean;
 }
 
@@ -23,6 +24,7 @@ export const TrackItem: React.FC<TrackItemProps> = ({
   onPlay,
   onDownload,
   onDelete,
+  onSaveFile,
   showDeleteButton = false
 }) => {
   const isDownloading = downloadProgress !== undefined;
@@ -105,6 +107,18 @@ export const TrackItem: React.FC<TrackItemProps> = ({
             ) : (
               <Ionicons name="arrow-down" size={18} color={COLORS.textSecondary} />
             )}
+          </TouchableOpacity>
+        )}
+
+        {/* Tombol Simpan/Download File Fisik .m4a ke Komputer / HP */}
+        {onSaveFile && (
+          <TouchableOpacity
+            style={styles.saveFileBtn}
+            onPress={onSaveFile}
+            activeOpacity={0.6}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="download-outline" size={18} color={COLORS.accentPrimary} />
           </TouchableOpacity>
         )}
 
@@ -242,6 +256,16 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '700',
     position: 'absolute'
+  },
+  saveFileBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#1E293B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155'
   },
   deleteBtn: {
     width: 34,

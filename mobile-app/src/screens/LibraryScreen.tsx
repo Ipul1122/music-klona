@@ -15,6 +15,7 @@ import { COLORS } from '../constants/theme';
 import { TrackItem } from '../components/TrackItem';
 import { NetworkBanner } from '../components/NetworkBanner';
 import { Track } from '../types';
+import { webOfflineStorage } from '../services/webOfflineStorage';
 
 export const LibraryScreen: React.FC = () => {
   const offlineTracks = useMusicStore(s => s.offlineTracks);
@@ -49,6 +50,25 @@ export const LibraryScreen: React.FC = () => {
         }
       ]
     );
+  };
+
+  const handleSaveFile = async (track: Track) => {
+    if (Platform.OS === 'web') {
+      const blob = await webOfflineStorage.getBlob(track.id);
+      if (blob && typeof window !== 'undefined' && typeof document !== 'undefined') {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        const safeTitle = (track.title || 'audio').replace(/[/\\?%*:|"<>]/g, '_').trim();
+        a.download = `${safeTitle}.m4a`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      }
+    } else {
+      Alert.alert('File Tersimpan', `Audio telah tersimpan di memori lokal HP: ${track.localUri}`);
+    }
   };
 
   return (
@@ -94,6 +114,7 @@ export const LibraryScreen: React.FC = () => {
                 onPlay={() => playTrack(item, offlineTracks)}
                 showDeleteButton={true}
                 onDelete={() => handleDelete(item)}
+                onSaveFile={() => handleSaveFile(item)}
               />
             );
           }}

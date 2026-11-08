@@ -85,6 +85,25 @@ export const downloadManager = {
         const completeBlob = new Blob(chunks, { type: 'audio/mp4' });
         await webOfflineStorage.saveBlob(track.id, completeBlob);
 
+        // 3. Trigger download file fisik .m4a ke browser (folder Download laptop/HP user)
+        if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+          try {
+            const blobUrl = URL.createObjectURL(completeBlob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            const safeTitle = (track.title || 'audio')
+              .replace(/[/\\?%*:|"<>]/g, '_')
+              .trim();
+            a.download = `${safeTitle}.m4a`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+          } catch (dlErr) {
+            console.warn('[DOWNLOAD_MANAGER] Gagal trigger direct browser download:', dlErr);
+          }
+        }
+
         const completedWeb: Track = {
           ...track,
           localUri: `indexeddb://${track.id}`,

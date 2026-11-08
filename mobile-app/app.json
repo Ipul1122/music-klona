@@ -6,10 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#09090B"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.musikklona.app",
