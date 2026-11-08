@@ -154,7 +154,7 @@ export const SearchScreen: React.FC = () => {
         {isSearching && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={COLORS.accentPrimary} />
-            <Text style={styles.loadingText}>Mencari langsung di katalog YouTube...</Text>
+            <Text style={styles.loadingText}>Mencari Musik</Text>
           </View>
         )}
 
@@ -204,7 +204,7 @@ export const SearchScreen: React.FC = () => {
                     Ketik judul lagu favorit Anda untuk streaming atau unduh langsung ke memori internal HP.
                   </Text>
                 </View>
-              ) : null
+              ) : undefined
             }
           />
         )}
