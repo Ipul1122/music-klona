@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Platform,
-  Linking
+  Linking,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMusicStore } from '../store/useMusicStore';
@@ -21,6 +22,8 @@ import { storageService } from '../services/storageService';
 export const SearchScreen: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const searchResults = useMusicStore(s => s.searchResults);
@@ -35,10 +38,45 @@ export const SearchScreen: React.FC = () => {
   const playTrack = useMusicStore(s => s.playTrack);
   const downloadTrack = useMusicStore(s => s.downloadTrack);
 
-  // Load recent searches saat awal buka
+  // Load recent searches saat awal buka & deteksi Desktop PWA install
   useEffect(() => {
     storageService.getRecentSearches().then(setRecentSearches);
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const isApp =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone;
+      setIsStandalone(!!isApp);
+
+      const handlePrompt = (e: any) => {
+        e.preventDefault();
+        setInstallPrompt(e);
+      };
+      window.addEventListener('beforeinstallprompt', handlePrompt);
+      return () => window.removeEventListener('beforeinstallprompt', handlePrompt);
+    }
   }, []);
+
+  const handleInstallDesktop = async () => {
+    if (installPrompt) {
+      try {
+        await installPrompt.prompt();
+        const choice = await installPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          setIsStandalone(true);
+          setInstallPrompt(null);
+        }
+      } catch (err) {
+        console.warn('Install prompt error:', err);
+      }
+    } else {
+      Alert.alert(
+        'Cara Pasang Musik Klona ke Desktop',
+        '1. Buka situs ini di Chrome atau Microsoft Edge di PC/Laptop.\n2. Klik ikon "Install" (ikon komputer/layar panah ke bawah) di sebelah kanan address bar browser Anda.\n3. Atau klik Menu Titik Tiga (⋮) > pilih "Install Musik Klona".\n\nAplikasi akan terpasang di Desktop & Start Menu layaknya aplikasi native!',
+        [{ text: 'Mengerti' }]
+      );
+    }
+  };
 
   const saveAndSearch = async (query: string) => {
     const trimmed = query.trim();
@@ -80,24 +118,48 @@ export const SearchScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Banner Tombol Download APK & Desktop/Mobile Mode */}
-        <View style={styles.appBanner}>
-          <View style={styles.appBannerLeft}>
-            <Ionicons name="phone-portrait-outline" size={20} color={COLORS.accentPrimary} />
-            <View style={styles.appBannerTextCol}>
-              <Text style={styles.appBannerTitle}>Musik Klona APK</Text>
-              <Text style={styles.appBannerSub}>Tersedia untuk Android & Desktop Web</Text>
+        {/* Banner Tombol Download APK & Desktop Mode */}
+        {Platform.OS === 'web' && (
+          <View style={styles.appBanner}>
+            <View style={styles.appBannerLeft}>
+              <Ionicons
+                name={isStandalone ? 'checkmark-circle' : 'desktop-outline'}
+                size={22}
+                color={COLORS.accentPrimary}
+              />
+              <View style={styles.appBannerTextCol}>
+                <Text style={styles.appBannerTitle}>
+                  {isStandalone ? 'Musik Klona Desktop Aktif' : 'Musik Klona Versi Komputer'}
+                </Text>
+                <Text style={styles.appBannerSub}>
+                  {isStandalone
+                    ? 'Aplikasi berjalan dalam mode desktop standalone'
+                    : 'Pasang di Windows / Mac tanpa browser'}
+                </Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+              {!isStandalone && (
+                <TouchableOpacity
+                  style={styles.appBannerBtn}
+                  onPress={handleInstallDesktop}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="download-outline" size={15} color={COLORS.backgroundPrimary} style={{ marginRight: 4 }} />
+                  <Text style={styles.appBannerBtnText}>Pasang Desktop</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.appBannerBtn, { backgroundColor: '#27272A' }]}
+                onPress={() => Linking.openURL('https://github.com/Ipul1122/music-klona/actions')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="phone-portrait-outline" size={13} color={COLORS.textPrimary} style={{ marginRight: 4 }} />
+                <Text style={[styles.appBannerBtnText, { color: COLORS.textPrimary, fontSize: 11 }]}>APK HP</Text>
+              </TouchableOpacity>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.appBannerBtn}
-            onPress={() => Linking.openURL('https://github.com/Ipul1122/music-klona/actions')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="download" size={15} color={COLORS.backgroundPrimary} style={{ marginRight: 4 }} />
-            <Text style={styles.appBannerBtnText}>Unduh APK</Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
         {/* 1. Search Bar di Bagian Atas */}
         <View style={styles.searchBarWrapper}>

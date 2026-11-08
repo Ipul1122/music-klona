@@ -5,7 +5,8 @@ const STORAGE_KEYS = {
   LICENSE: '@musik_klona_license_v1',
   OFFLINE_TRACKS: '@musik_klona_offline_tracks_v1',
   DEVICE_ID: '@musik_klona_device_id_v1',
-  RECENT_SEARCHES: '@musik_klona_recent_searches_v1'
+  RECENT_SEARCHES: '@musik_klona_recent_searches_v1',
+  SERVER_URL: '@musik_klona_server_url_v1'
 };
 
 export const storageService = {
@@ -139,6 +140,28 @@ export const storageService = {
       return updated;
     } catch {
       return [];
+    }
+  },
+
+  /**
+   * Mengambil URL server lisensi yang disimpan pengguna
+   */
+  async getServerUrl(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(STORAGE_KEYS.SERVER_URL);
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Menyimpan URL server lisensi custom
+   */
+  async saveServerUrl(url: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.SERVER_URL, url.trim());
+    } catch {
+      // ignore
     }
   },
 

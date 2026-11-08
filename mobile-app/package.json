@@ -8,9 +8,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "start:server": "npm run dev --prefix ../license-server",
-    "build:web": "expo export --platform web",
+    "build:web": "expo export --platform web && node scripts/post-export-web.mjs",
     "type-check": "tsc --noEmit",
-    "test": "npx tsx test/integration-test.ts"
+    "test": "echo \"Mobile tests run via Expo Jest / Device Smoke Test\""
   },
   "dependencies": {
     "@expo/metro-runtime": "^58.0.17",

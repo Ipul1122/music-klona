@@ -1,0 +1,24 @@
+{
+  "short_name": "Musik Klona",
+  "name": "Musik Klona - Offline Music Player",
+  "description": "Aplikasi streaming dan pemutar musik offline dengan lirik dan visualizer.",
+  "icons": [
+    {
+      "src": "/assets/icon.png",
+      "type": "image/png",
+      "sizes": "1024x1024",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/favicon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#09090B",
+  "theme_color": "#1DB954",
+  "display": "standalone",
+  "orientation": "portrait"
+}
+

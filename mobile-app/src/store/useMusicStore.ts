@@ -52,7 +52,7 @@ interface MusicStoreState {
   skipPrevious: () => Promise<void>;
   seekTo: (sec: number) => Promise<void>;
   setPlayerModalOpen: (open: boolean) => void;
-  activateLicense: (key: string, serverUrl?: string) => Promise<{ success: boolean; message: string }>;
+  activateLicense: (key: string, serverUrl?: string) => Promise<{ success: boolean; message: string; error?: string }>;
   logoutLicense: () => Promise<void>;
 }
 
@@ -264,7 +264,7 @@ export const useMusicStore = create<MusicStoreState>((set, get) => ({
         isVerifyingLicense: false,
         licenseError: result.message
       });
-      return { success: false, message: result.message };
+      return { success: false, message: result.message, error: result.error };
     }
   },
 

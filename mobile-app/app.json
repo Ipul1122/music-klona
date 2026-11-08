@@ -18,6 +18,7 @@
         "backgroundColor": "#09090B"
       },
       "package": "com.musikklona.app",
+      "usesCleartextTraffic": true,
       "permissions": [
         "WAKE_LOCK",
         "FOREGROUND_SERVICE",
@@ -26,6 +27,14 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Musik Klona",
+      "shortName": "Musik Klona",
+      "themeColor": "#09090B",
+      "backgroundColor": "#09090B",
+      "display": "standalone"
     },
     "plugins": [
       [
@@ -37,4 +46,3 @@
     ]
   }
 }
-

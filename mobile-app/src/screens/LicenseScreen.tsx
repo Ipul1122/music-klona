@@ -36,6 +36,13 @@ export const LicenseScreen: React.FC = () => {
       const name = getDeviceDisplayName();
       setHardwareId(id);
       setDeviceName(name);
+
+      const savedUrl = await storageService.getServerUrl();
+      if (savedUrl) {
+        setServerUrl(savedUrl);
+      } else if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
+        setServerUrl(window.location.origin);
+      }
     }
     loadDevice();
   }, []);
@@ -47,9 +54,15 @@ export const LicenseScreen: React.FC = () => {
       return;
     }
 
-    const res = await activateLicense(licenseInput.trim(), serverUrl.trim());
+    const cleanUrl = serverUrl.trim();
+    await storageService.saveServerUrl(cleanUrl);
+
+    const res = await activateLicense(licenseInput.trim(), cleanUrl);
     if (!res.success) {
       setFeedback({ type: 'error', message: res.message });
+      if (res.error === 'NETWORK_ERROR' && cleanUrl.includes('localhost') && Platform.OS !== 'web') {
+        setShowServerSetting(true);
+      }
     }
   };
 
@@ -218,8 +231,28 @@ export const LicenseScreen: React.FC = () => {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
+                <View style={styles.serverPresetsRow}>
+                  <TouchableOpacity
+                    style={styles.presetChip}
+                    onPress={() => setServerUrl('https://music-klona.vercel.app')}
+                  >
+                    <Text style={styles.presetChipText}>🌐 Cloud Vercel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.presetChip}
+                    onPress={() => setServerUrl('http://192.168.100.186:3000')}
+                  >
+                    <Text style={styles.presetChipText}>💻 IP Laptop</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.presetChip}
+                    onPress={() => setServerUrl('http://localhost:3000')}
+                  >
+                    <Text style={styles.presetChipText}>🔄 Localhost</Text>
+                  </TouchableOpacity>
+                </View>
                 <Text style={styles.serverHint}>
-                  (Gunakan IP LAN jika diuji di HP fisik, atau URL Vercel produksi)
+                  (Jika buka di HP fisik, gunakan IP Laptop atau Cloud Vercel. Jangan gunakan localhost)
                 </Text>
               </View>
             )}
@@ -492,6 +525,26 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 13,
     paddingVertical: 4
+  },
+  serverPresetsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+    marginBottom: 4
+  },
+  presetChip: {
+    backgroundColor: '#1E1E24',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#3F3F46'
+  },
+  presetChipText: {
+    color: COLORS.accentPrimary,
+    fontSize: 11,
+    fontWeight: '500'
   },
   serverHint: {
     color: COLORS.textMuted,
