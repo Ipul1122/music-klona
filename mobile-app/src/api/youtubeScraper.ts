@@ -44,20 +44,22 @@ export async function searchYouTubeTracks(query: string): Promise<Track[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // Jika di browser Web, coba langsung atau fallback ke dev search endpoint jika terhalang CORS
-  if (isWeb) {
-    try {
-      const devRes = await fetch(`${DEV_SERVER_URL}/api/search?q=${encodeURIComponent(trimmed)}`);
-      if (devRes.ok) {
-        const devData = await devRes.json();
-        if (Array.isArray(devData.tracks) && devData.tracks.length > 0) {
-          return devData.tracks;
-        }
+  // 1. Coba via API Backend (/api/search) terlebih dahulu (bebas CORS di semua platform)
+  try {
+    const apiUrl = `${DEV_SERVER_URL.replace(/\/+$/, '')}/api/search?q=${encodeURIComponent(trimmed)}`;
+    const devRes = await fetch(apiUrl);
+    if (devRes.ok) {
+      const devData = await devRes.json();
+      if (Array.isArray(devData.tracks) && devData.tracks.length > 0) {
+        return devData.tracks;
       }
-    } catch {
-      // jika server lokal dev belum start, lanjutkan coba direct fetch
     }
+  } catch {
+    // jika API server belum start, lanjutkan coba direct fetch
   }
+
+  // 2. Pada HP Fisik Native (Android & iOS), panggil InnerTube YouTube langsung On-Device (Bebas CORS di native)
+  if (!isWeb) {
 
   try {
     const response = await fetch('https://www.youtube.com/youtubei/v1/search', {
@@ -122,36 +124,41 @@ export async function searchYouTubeTracks(query: string): Promise<Track[]> {
     }
 
     return tracks;
-  } catch (error) {
-    console.warn('[YOUTUBE_SCRAPER] InnerTube direct search gagal (mungkin CORS di web), beralih ke fallback pencarian audio resmi...', error);
-    try {
-      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&entity=song&limit=25`);
-      if (itunesRes.ok) {
-        const itunesData = await itunesRes.json();
-        if (Array.isArray(itunesData.results) && itunesData.results.length > 0) {
-          return itunesData.results.map((r: any) => {
-            const trackId = `itunes-${r.trackId}`;
-            if (r.previewUrl) {
-              streamUrlCache.set(trackId, r.previewUrl);
-            }
-            return {
-              id: trackId,
-              title: r.trackName,
-              artist: r.artistName,
-              duration: formatSecondsToTime(Math.round((r.trackTimeMillis || 0) / 1000)),
-              durationSec: Math.round((r.trackTimeMillis || 0) / 1000),
-              thumbnail: r.artworkUrl100?.replace('100x100bb', '600x600bb') || r.artworkUrl100,
-              remoteAudioUrl: r.previewUrl,
-              isDownloaded: false
-            };
-          });
-        }
-      }
-    } catch (fallbackErr) {
-      console.error('[YOUTUBE_SCRAPER] Fallback pencarian juga gagal:', fallbackErr);
+    } catch (error) {
+      console.warn('[YOUTUBE_SCRAPER] Native On-Device search gagal:', error);
     }
-    throw error;
   }
+
+  // 3. Fallback jika offline atau server Vercel belum merespons
+  console.warn('[YOUTUBE_SCRAPER] Menggunakan fallback pencarian audio...');
+  try {
+    const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&entity=song&limit=25`);
+    if (itunesRes.ok) {
+      const itunesData = await itunesRes.json();
+      if (Array.isArray(itunesData.results) && itunesData.results.length > 0) {
+        return itunesData.results.map((r: any) => {
+          const trackId = `itunes-${r.trackId}`;
+          if (r.previewUrl) {
+            streamUrlCache.set(trackId, r.previewUrl);
+          }
+          return {
+            id: trackId,
+            title: r.trackName,
+            artist: r.artistName,
+            duration: formatSecondsToTime(Math.round((r.trackTimeMillis || 0) / 1000)),
+            durationSec: Math.round((r.trackTimeMillis || 0) / 1000),
+            thumbnail: r.artworkUrl100?.replace('100x100bb', '600x600bb') || r.artworkUrl100,
+            remoteAudioUrl: r.previewUrl,
+            isDownloaded: false
+          };
+        });
+      }
+    }
+  } catch (fallbackErr) {
+    console.error('[YOUTUBE_SCRAPER] Fallback pencarian juga gagal:', fallbackErr);
+  }
+
+  throw new Error(`Pencarian untuk "${trimmed}" tidak menghasilkan lagu.`);
 }
 
 /**

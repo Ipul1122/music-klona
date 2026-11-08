@@ -6,7 +6,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!sw\\.js|manifest\\.json|assets/|_expo/).*)",
+      "source": "/((?!api/|sw\\.js|manifest\\.json|assets/|_expo/).*)",
       "destination": "/index.html"
     }
   ],
