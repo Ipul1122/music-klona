@@ -52,9 +52,14 @@ jobs:
         working-directory: ./mobile-app
         run: |
           npx expo prebuild --platform android --clean --no-install
+          # Menggunakan Gradle 8.10.2 (versi resmi standar React Native 0.76) untuk mencegah error Kotlin metadata Gradle 9
+          sed -i 's/gradle-9.*-bin.zip/gradle-8.10.2-bin.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+          echo "android.kotlinVersion=1.9.24" >> android/gradle.properties
 
       - name: 🐘 Setup Gradle Cache
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.10.2
 
       - name: 🚀 Compile APK (Assemble Debug APK Siap Install)
         working-directory: ./mobile-app/android
