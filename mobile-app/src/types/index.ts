@@ -1,11 +1,12 @@
 export interface Track {
-  id: string; // YouTube videoId
+  id: string; // YouTube videoId / trackId
   title: string;
   artist: string;
   duration: string; // e.g. "4:15"
   durationSec: number;
   thumbnail: string;
   localUri?: string; // e.g. file:///.../tracks/{id}.m4a
+  remoteAudioUrl?: string; // Direct audio stream url (.m4a)
   isDownloaded: boolean;
   downloadProgress?: number; // 0 - 100
   downloadStatus?: 'idle' | 'downloading' | 'completed' | 'failed';

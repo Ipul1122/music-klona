@@ -37,52 +37,65 @@ export const downloadManager = {
       activeWebAbortControllers.set(track.id, abortController);
 
       try {
-        const streamBase = `${DEFAULT_LICENSE_SERVER_URL.replace(/\/+$/, '')}/api/stream?videoId=${encodeURIComponent(track.id)}`;
-        
-        // 1. Dapatkan perkiraan total length melalui HEAD request
-        let totalLength = 4000000;
-        try {
-          const headRes = await fetch(streamBase, {
-            method: 'HEAD',
-            signal: abortController.signal
-          });
-          const clen = headRes.headers.get('content-length');
-          if (clen) {
-            totalLength = parseInt(clen, 10);
+        let completeBlob: Blob;
+
+        if (track.remoteAudioUrl) {
+          // Unduh langsung dari URL direct audio (.m4a)
+          onProgress?.(30);
+          const dlRes = await fetch(track.remoteAudioUrl, { signal: abortController.signal });
+          onProgress?.(70);
+          const blobData = await dlRes.blob();
+          completeBlob = new Blob([blobData], { type: 'audio/mp4' });
+          onProgress?.(90);
+        } else {
+          const streamBase = `${DEFAULT_LICENSE_SERVER_URL.replace(/\/+$/, '')}/api/stream?videoId=${encodeURIComponent(track.id)}`;
+          
+          // 1. Dapatkan perkiraan total length melalui HEAD request
+          let totalLength = 4000000;
+          try {
+            const headRes = await fetch(streamBase, {
+              method: 'HEAD',
+              signal: abortController.signal
+            });
+            const clen = headRes.headers.get('content-length');
+            if (clen) {
+              totalLength = parseInt(clen, 10);
+            }
+          } catch {
+            // Gunakan fallback size jika HEAD tidak tersedia
           }
-        } catch {
-          // Gunakan fallback size jika HEAD tidak tersedia
+
+          const CHUNK_SIZE = 524288; // 512 KB per chunk untuk kestabilan download bebas 403
+          const chunks: BlobPart[] = [];
+          let downloaded = 0;
+
+          for (let start = 0; start < totalLength; start += CHUNK_SIZE) {
+            if (abortController.signal.aborted) {
+              throw new Error('Unduhan dibatalkan');
+            }
+
+            const end = Math.min(start + CHUNK_SIZE - 1, totalLength - 1);
+            const chunkRes = await fetch(streamBase, {
+              headers: { 'Range': `bytes=${start}-${end}` },
+              signal: abortController.signal
+            });
+
+            if (!chunkRes.ok && chunkRes.status !== 206) {
+              throw new Error(`Gagal mengunduh bagian audio (HTTP ${chunkRes.status})`);
+            }
+
+            const arrayBuf = await chunkRes.arrayBuffer();
+            chunks.push(arrayBuf);
+            downloaded += arrayBuf.byteLength;
+
+            const percent = Math.min(100, Math.round((downloaded / totalLength) * 100));
+            onProgress?.(percent);
+          }
+
+          // 2. Susun biner lengkap ke Blob .m4a dan simpan ke IndexedDB
+          completeBlob = new Blob(chunks, { type: 'audio/mp4' });
         }
 
-        const CHUNK_SIZE = 524288; // 512 KB per chunk untuk kestabilan download bebas 403
-        const chunks: BlobPart[] = [];
-        let downloaded = 0;
-
-        for (let start = 0; start < totalLength; start += CHUNK_SIZE) {
-          if (abortController.signal.aborted) {
-            throw new Error('Unduhan dibatalkan');
-          }
-
-          const end = Math.min(start + CHUNK_SIZE - 1, totalLength - 1);
-          const chunkRes = await fetch(streamBase, {
-            headers: { 'Range': `bytes=${start}-${end}` },
-            signal: abortController.signal
-          });
-
-          if (!chunkRes.ok && chunkRes.status !== 206) {
-            throw new Error(`Gagal mengunduh bagian audio (HTTP ${chunkRes.status})`);
-          }
-
-          const arrayBuf = await chunkRes.arrayBuffer();
-          chunks.push(arrayBuf);
-          downloaded += arrayBuf.byteLength;
-
-          const percent = Math.min(100, Math.round((downloaded / totalLength) * 100));
-          onProgress?.(percent);
-        }
-
-        // 2. Susun biner lengkap ke Blob .m4a dan simpan ke IndexedDB
-        const completeBlob = new Blob(chunks, { type: 'audio/mp4' });
         await webOfflineStorage.saveBlob(track.id, completeBlob);
 
         // 3. Trigger download file fisik .m4a ke browser (folder Download laptop/HP user)

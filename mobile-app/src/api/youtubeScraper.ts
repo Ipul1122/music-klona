@@ -2,6 +2,7 @@ import { Track } from '../types';
 import { DEFAULT_LICENSE_SERVER_URL } from './licenseApi';
 
 const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
+const streamUrlCache = new Map<string, string>();
 
 /**
  * On-Device YouTube InnerTube Scraper (100% TypeScript Murni)
@@ -122,7 +123,33 @@ export async function searchYouTubeTracks(query: string): Promise<Track[]> {
 
     return tracks;
   } catch (error) {
-    console.error('[YOUTUBE_SCRAPER] Search Error:', error);
+    console.warn('[YOUTUBE_SCRAPER] InnerTube direct search gagal (mungkin CORS di web), beralih ke fallback pencarian audio resmi...', error);
+    try {
+      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&entity=song&limit=25`);
+      if (itunesRes.ok) {
+        const itunesData = await itunesRes.json();
+        if (Array.isArray(itunesData.results) && itunesData.results.length > 0) {
+          return itunesData.results.map((r: any) => {
+            const trackId = `itunes-${r.trackId}`;
+            if (r.previewUrl) {
+              streamUrlCache.set(trackId, r.previewUrl);
+            }
+            return {
+              id: trackId,
+              title: r.trackName,
+              artist: r.artistName,
+              duration: formatSecondsToTime(Math.round((r.trackTimeMillis || 0) / 1000)),
+              durationSec: Math.round((r.trackTimeMillis || 0) / 1000),
+              thumbnail: r.artworkUrl100?.replace('100x100bb', '600x600bb') || r.artworkUrl100,
+              remoteAudioUrl: r.previewUrl,
+              isDownloaded: false
+            };
+          });
+        }
+      }
+    } catch (fallbackErr) {
+      console.error('[YOUTUBE_SCRAPER] Fallback pencarian juga gagal:', fallbackErr);
+    }
     throw error;
   }
 }
@@ -131,6 +158,11 @@ export async function searchYouTubeTracks(query: string): Promise<Track[]> {
  * Ekstraksi direct audio stream URL (.m4a / itag 140) langsung di perangkat
  */
 export async function extractDirectAudioUrl(videoId: string): Promise<string> {
+  // Cek cache in-memory terlebih dahulu
+  if (streamUrlCache.has(videoId)) {
+    return streamUrlCache.get(videoId)!;
+  }
+
   // Jika di browser Web, coba dev extract endpoint jika browser terhalang CORS
   if (isWeb) {
     try {

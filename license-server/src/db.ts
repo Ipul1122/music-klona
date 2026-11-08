@@ -27,6 +27,15 @@ const initialLicenses: LicenseRecord[] = [
     buyerName: 'QA Tester',
     buyerPhone: '089876543210',
     status: 'active'
+  },
+  {
+    licenseKey: 'PULL-USER1-LIFETIME',
+    maxDevices: 3,
+    devices: [],
+    createdAt: new Date().toISOString(),
+    buyerName: 'USER 1',
+    buyerPhone: '081234567890',
+    status: 'active'
   }
 ];
 

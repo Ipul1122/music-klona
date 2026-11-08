@@ -50,18 +50,27 @@ export const LicenseScreen: React.FC = () => {
   const handleActivate = async () => {
     setFeedback(null);
     if (!licenseInput.trim()) {
-      setFeedback({ type: 'error', message: 'Silakan masukkan kode lisensi (contoh: PULL-XXXX-XXXX).' });
+      setFeedback({
+        type: 'error',
+        message: 'Silakan masukkan kode lisensi, atau klik tombol "Coba Mode Demo Instan" di bawah untuk masuk tanpa lisensi.'
+      });
       return;
     }
 
+    const cleanKey = licenseInput.trim().toUpperCase();
     const cleanUrl = serverUrl.trim();
     await storageService.saveServerUrl(cleanUrl);
 
-    const res = await activateLicense(licenseInput.trim(), cleanUrl);
+    const res = await activateLicense(cleanKey, cleanUrl);
     if (!res.success) {
-      setFeedback({ type: 'error', message: res.message });
-      if (res.error === 'NETWORK_ERROR' && cleanUrl.includes('localhost') && Platform.OS !== 'web') {
+      if (res.error === 'NETWORK_ERROR') {
+        setFeedback({
+          type: 'error',
+          message: 'Server lisensi belum terhubung. Silakan klik tombol "Coba Mode Demo Instan" di bawah untuk langsung mencoba aplikasi secara offline.'
+        });
         setShowServerSetting(true);
+      } else {
+        setFeedback({ type: 'error', message: res.message });
       }
     }
   };
@@ -205,7 +214,7 @@ export const LicenseScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <Ionicons name="sparkles" size={16} color={COLORS.accentPrimary} />
-              <Text style={styles.guestBtnText}>Coba Mode Demo Instan (Tanpa Backend)</Text>
+              <Text style={styles.guestBtnText}>Masuk Langsung (Mode Demo Tanpa Kunci)</Text>
             </TouchableOpacity>
 
             {/* Konfigurasi Server URL Toggle */}

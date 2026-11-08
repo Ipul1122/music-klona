@@ -116,9 +116,17 @@ class PlayerService {
           }
         }
 
-        // Jika lagu online (belum diunduh), streaming via license server
+        // Jika lagu online (belum diunduh), gunakan direct stream URL atau streaming server
         if (!playUrl) {
-          playUrl = `${DEFAULT_LICENSE_SERVER_URL.replace(/\/+$/, '')}/api/stream?videoId=${encodeURIComponent(track.id)}`;
+          if (track.remoteAudioUrl) {
+            playUrl = track.remoteAudioUrl;
+          } else {
+            try {
+              playUrl = await extractDirectAudioUrl(track.id);
+            } catch {
+              playUrl = `${DEFAULT_LICENSE_SERVER_URL.replace(/\/+$/, '')}/api/stream?videoId=${encodeURIComponent(track.id)}`;
+            }
+          }
         }
 
         sourceUri = playUrl;

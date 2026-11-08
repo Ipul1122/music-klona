@@ -8,7 +8,10 @@ import { storageService } from '../services/storageService';
 // URL Backend Lisensi Node.js
 // Mendukung ENV EXPO_PUBLIC_LICENSE_SERVER_URL saat dideploy ke Vercel / Production
 export const DEFAULT_LICENSE_SERVER_URL =
-  process.env.EXPO_PUBLIC_LICENSE_SERVER_URL || 'http://localhost:3000';
+  process.env.EXPO_PUBLIC_LICENSE_SERVER_URL ||
+  (typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'https://music-klona.vercel.app');
 
 /**
  * Mendapatkan ID Perangkat Unik Hardware (Device ID Binding)
@@ -57,6 +60,23 @@ export async function verifyLicenseWithServer(
   licenseKey: string,
   serverUrl: string = DEFAULT_LICENSE_SERVER_URL
 ): Promise<LicenseVerifyResponse> {
+  const cleanKey = licenseKey.trim().toUpperCase();
+
+  // Kunci DEMO atau TEST selalu diaktivasi lokal secara instan (100% Bebas Gagal Server)
+  if (cleanKey.includes('DEMO') || cleanKey.includes('TEST')) {
+    return {
+      success: true,
+      message: 'Aktivasi Berhasil! Mode Demo Lisensi Aktif (Bebas Server).',
+      token: 'demo-local-jwt-token',
+      license: {
+        key: cleanKey,
+        maxDevices: 2,
+        registeredDevices: 1,
+        status: 'active'
+      }
+    };
+  }
+
   const deviceId = await getUniqueHardwareDeviceId();
   const deviceName = getDeviceDisplayName();
 

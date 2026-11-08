@@ -151,11 +151,11 @@ export const SearchScreen: React.FC = () => {
               )}
               <TouchableOpacity
                 style={[styles.appBannerBtn, { backgroundColor: '#27272A' }]}
-                onPress={() => Linking.openURL('https://github.com/Ipul1122/music-klona/actions')}
+                onPress={() => Linking.openURL('https://github.com/Ipul1122/music-klona/releases/download/v1.0.0/MusikKlona.apk')}
                 activeOpacity={0.8}
               >
                 <Ionicons name="phone-portrait-outline" size={13} color={COLORS.textPrimary} style={{ marginRight: 4 }} />
-                <Text style={[styles.appBannerBtnText, { color: COLORS.textPrimary, fontSize: 11 }]}>APK HP</Text>
+                <Text style={[styles.appBannerBtnText, { color: COLORS.textPrimary, fontSize: 11 }]}>Unduh APK Langsung</Text>
               </TouchableOpacity>
             </View>
           </View>
